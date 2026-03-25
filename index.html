@@ -62,7 +62,7 @@
 
   <div class="messages" id="messages">
     <div class="message bot">
-      <div class="bubble">Habari! I am the BoT Verification Assistant. How can I help you today?</div>
+      <div class="bubble">Habari! I am the BoT Verification Assistant. I can help you verify microfinance providers and answer questions about Tanzanian financial regulations. How can I help?</div>
       <div class="msg-time">Now</div>
     </div>
   </div>
@@ -80,8 +80,11 @@
 </div>
 
 <script>
-  // UPDATED URL: Based on your workflow trigger ID
+  // Your n8n Webhook URL
   const WEBHOOK_URL = 'https://lyn.app.n8n.cloud/webhook/25aef645-6477-4039-bccd-506264e30ea5/chat';
+
+  // Persistent session ID for n8n Memory node
+  const sessionId = "bot-verify-" + Math.random().toString(36).substring(7);
 
   function appendMessage(role, text) {
     const container = document.getElementById('messages');
@@ -115,7 +118,6 @@
     
     if (!text) return;
 
-    // UI Updates
     input.value = '';
     input.disabled = true;
     btn.disabled = true;
@@ -126,29 +128,31 @@
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // IMPORTANT: Sending as 'chatInput' to match your AI Agent node
-        body: JSON.stringify({ chatInput: text, sessionId: "user-123" })
+        // Sending 'chatInput' and 'sessionId' as required by your n8n workflow
+        body: JSON.stringify({ 
+            chatInput: text, 
+            sessionId: sessionId 
+        })
       });
 
-      if (!response.ok) throw new Error(`Server Error: ${response.status}`);
+      if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
 
       const data = await response.json();
       toggleTyping(false);
 
-      // Robust response parsing
+      // Handle both direct objects and array responses from n8n
       let botReply = "";
-      if (Array.isArray(data)) {
-          botReply = data[0]?.output || data[0]?.text || data[0]?.message || "No response content found.";
-      } else {
-          botReply = data.output || data.text || data.message || JSON.stringify(data);
-      }
+      const result = Array.isArray(data) ? data[0] : data;
+      
+      // Look for 'output' from your AI Agent or the final Code node
+      botReply = result.output || result.text || result.message || "Samahani, sijaweza kupata jibu sahihi.";
 
       appendMessage('bot', botReply);
 
     } catch (error) {
       console.error('Chat Error:', error);
       toggleTyping(false);
-      appendMessage('bot', `⚠️ Connection Error: ${error.message}. Please check if your n8n workflow is Active.`);
+      appendMessage('bot', `⚠️ Connection Error: ${error.message}. Please ensure the n8n workflow is Active and Published.`);
     } finally {
       input.disabled = false;
       btn.disabled = false;
